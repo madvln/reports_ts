@@ -1,96 +1,78 @@
-from docx import Document
-import openpyxl
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib import colors
-import time
+import os
+import pandas as pd
+from docxtpl import DocxTemplate
+from docx2pdf import convert
+
+# Пути к папкам
+DATA_DIR = "data"
+TEMPLATES_DIR = "template"
+PDF_DIR = "pdf"
+
+# Создаем папку для PDF, если ее нет
+os.makedirs(PDF_DIR, exist_ok=True)
 
 
-def create_pdf(filename, content):
-    """Создает PDF файл с заданным содержимым."""
-
-    # 1. Регистрируем шрифт (если он еще не зарегистрирован)
-    pdfmetrics.registerFont(
-        TTFont("ArialUnicode", "Arial Unicode MS.ttf")
-    )  # Замените 'Arial Unicode.ttf' на путь к вашему файлу шрифта
-
-    c = canvas.Canvas(filename, pagesize=letter)
-    c.setFont("ArialUnicode", 12)  # Устанавливаем шрифт и размер
-
-    textobject = c.beginText()
-    textobject.setTextOrigin(10, 730)  # Отступ от левого нижнего угла
-    textobject.setFillColor(colors.black)  # Задаем цвет текста
-
-    for line in content.splitlines():
-        textobject.textLine(line)
-
-    c.drawText(textobject)
-    c.save()
+# Функция для извлечения города из имени файла
+def get_city_from_filename(filename):
+    # Убираем расширение и префикс "data_"
+    return filename.replace("data_", "").replace(".xlsx", "")
 
 
-def process_files(docx_file, excel_file):
-    """
-    Обрабатывает файлы Word и Excel для создания PDF файлов.
+# Получаем список всех файлов Excel в папке data
+excel_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".xlsx")]
 
-    Args:
-        docx_file (str): Путь к файлу Word (.docx).
-        excel_file (str): Путь к файлу Excel (.xlsx).
-    """
+# Обрабатываем каждый файл Excel
+for excel_file in excel_files:
+    # Получаем название города из имени файла
+    city = get_city_from_filename(excel_file)
 
-    # 1. Чтение данных из Word файла
-    try:
-        doc = Document(docx_file)
-        word_content = ""
-        for paragraph in doc.paragraphs:
-            word_content += paragraph.text
-        print(f"Содержимое Word: {word_content}")  # Для отладки
-    except FileNotFoundError:
-        print(f"Ошибка: Файл Word не найден: {docx_file}")
-        return
-    except Exception as e:
-        print(f"Ошибка при чтении Word файла: {e}")
-        return
+    # Путь к файлу Excel
+    excel_path = os.path.join(DATA_DIR, excel_file)
 
-    # 2. Чтение данных из Excel файла
-    try:
-        workbook = openpyxl.load_workbook(excel_file)
-        sheet = workbook.active  # Получаем активный лист
-        data = []
-        for row in sheet.iter_rows(
-            min_row=2, values_only=True
-        ):  # Начинаем со второй строки (после заголовков)
-            data.append(row)
-        print(f"Данные Excel: {data}")  # Для отладки
-    except FileNotFoundError:
-        print(f"Ошибка: Файл Excel не найден: {excel_file}")
-        return
-    except Exception as e:
-        print(f"Ошибка при чтении Excel файла: {e}")
-        return
+    # Загружаем данные из Excel
+    df = pd.read_excel(excel_path)
 
-    # 3. Создание PDF файлов на основе данных из Word и Excel
-    for row in data:
-        номер = row[0]  # Первый столбец - номер
-        сообщение = row[1]  # Второй столбец - сообщение
+    # Путь к шаблону для города
+    template_path = os.path.join(TEMPLATES_DIR, f"{city}.docx")
 
-        # Подставляем значения из Excel в шаблон из Word
-        pdf_content = word_content.replace("key_1", сообщение).replace("key_2", номер)
+    # Проверяем, существует ли шаблон для города
+    if not os.path.exists(template_path):
+        print(f"Шаблон для города {city} не найден. Пропускаем.")
+        continue
 
-        # Создаем имя файла PDF
-        pdf_filename = f"output_{номер}.pdf"
+    # Загружаем шаблон
+    doc = DocxTemplate(template_path)
 
-        # Создаем PDF файл
-        create_pdf(pdf_filename, pdf_content)
-        print(f"Создан PDF файл: {pdf_filename}")
+    # Создаем папку для города в PDF, если ее нет
+    city_pdf_dir = os.path.join(PDF_DIR, city)
+    os.makedirs(city_pdf_dir, exist_ok=True)
 
+    # Обрабатываем каждую строку в таблице
+    for index, row in df.iterrows():
+        # Получаем данные из строки
+        login = row[0]
+        password = row[1]
+        address = row[3]  # Столбец с адресом
 
-# Пример использования
-if __name__ == "__main__":
-    start = time.time()
-    word_file = "word_1.docx"
-    excel_file = "excel_1.xlsx"
-    process_files(word_file, excel_file)
-    end = time.time()
-    print(round(end - start, 2))
+        # Создаем контекст для замены ключей
+        context = {
+            "key_1": login,
+            "key_2": password,
+            "key_4": address,
+        }
+
+        # Заполняем шаблон данными
+        doc.render(context)
+
+        # Сохраняем временный Word-файл
+        temp_docx_path = os.path.join(city_pdf_dir, f"{login}.docx")
+        doc.save(temp_docx_path)
+
+        # Конвертируем Word в PDF
+        pdf_path = os.path.join(city_pdf_dir, f"{login}.pdf")
+        convert(temp_docx_path, pdf_path)
+
+        # Удаляем временный Word-файл
+        os.remove(temp_docx_path)
+
+        print(f"Создан PDF для {login} в папке {city_pdf_dir}")
