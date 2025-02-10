@@ -1,78 +1,84 @@
 import os
-import pandas as pd
-from docxtpl import DocxTemplate
-from docx2pdf import convert
+import pdfkit
+from jinja2 import Environment, FileSystemLoader
+from openpyxl import load_workbook
+from concurrent.futures import ThreadPoolExecutor
 
-# Пути к папкам
-DATA_DIR = "data"
-TEMPLATES_DIR = "template"
-PDF_DIR = "pdf"
+# Путь к папкам
+templates_dir = "templates"
+data_dir = "data"
+output_dir = "pdf"
 
-# Создаем папку для PDF, если ее нет
-os.makedirs(PDF_DIR, exist_ok=True)
+path_to_wkhtmltopdf = (
+    r"C:\Users\tarakanchikoves\source\reports_ts\wkhtmltox\bin\wkhtmltopdf.exe"
+)
+
+config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
 
 
 # Функция для извлечения города из имени файла
 def get_city_from_filename(filename):
-    # Убираем расширение и префикс "data_"
     return filename.replace("data_", "").replace(".xlsx", "")
 
 
-# Получаем список всех файлов Excel в папке data
-excel_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".xlsx")]
+# Функция для загрузки данных из Excel
+def load_excel_data(file_path):
+    wb = load_workbook(file_path)
+    sheet = wb.active
+    data = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        data.append(
+            {
+                "key_1": row[0],  # Предположим, что столбцы в Excel следующие
+                "key_2": row[1],
+                "key_4": row[3],
+            }
+        )
+    return data
 
-# Обрабатываем каждый файл Excel
-for excel_file in excel_files:
-    # Получаем название города из имени файла
-    city = get_city_from_filename(excel_file)
 
-    # Путь к файлу Excel
-    excel_path = os.path.join(DATA_DIR, excel_file)
+# Функция для рендеринга HTML из шаблона
+def render_html(template_name, data):
+    env = Environment(loader=FileSystemLoader(templates_dir))
+    template = env.get_template(template_name)
+    return template.render(data)
 
-    # Загружаем данные из Excel
-    df = pd.read_excel(excel_path)
 
-    # Путь к шаблону для города
-    template_path = os.path.join(TEMPLATES_DIR, f"{city}.docx")
+# Функция для конвертации HTML в PDF и сохранения в папку
+def convert_html_to_pdf(html_content, output_path):
+    pdfkit.from_string(html_content, output_path, configuration=config)
 
-    # Проверяем, существует ли шаблон для города
-    if not os.path.exists(template_path):
-        print(f"Шаблон для города {city} не найден. Пропускаем.")
-        continue
 
-    # Загружаем шаблон
-    doc = DocxTemplate(template_path)
+# Основная логика
+def generate_pdfs():
+    # Проходим по всем файлам в папке data
+    for file_name in os.listdir(data_dir):
+        if file_name.endswith(".xlsx"):
+            city_name = get_city_from_filename(file_name)
+            # city_name = file_name.split(".")[0] # Город из имени файла (например, 'astrakhan')
+            data = load_excel_data(os.path.join(data_dir, file_name))
 
-    # Создаем папку для города в PDF, если ее нет
-    city_pdf_dir = os.path.join(PDF_DIR, city)
-    os.makedirs(city_pdf_dir, exist_ok=True)
+            # Создаем папку для города, если она не существует
+            city_output_dir = os.path.join(output_dir, city_name)
+            os.makedirs(city_output_dir, exist_ok=True)
 
-    # Обрабатываем каждую строку в таблице
-    for index, row in df.iterrows():
-        # Получаем данные из строки
-        login = row[0]
-        password = row[1]
-        address = row[3]  # Столбец с адресом
+            # Загружаем соответствующий HTML-шаблон
+            template_name = f"{city_name}.htm"  # Например, astrahan.htm
+            html_template = render_html(template_name, {"data": data})
 
-        # Создаем контекст для замены ключей
-        context = {
-            "key_1": login,
-            "key_2": password,
-            "key_4": address,
-        }
+            # Генерация PDF для каждой строки данных
+            for i, row_data in enumerate(data):
+                # Рендерим HTML с данными
+                html_content = render_html(template_name, row_data)
 
-        # Заполняем шаблон данными
-        doc.render(context)
+                # Путь к PDF-файлу
+                pdf_filename = f"{city_name}_{i+1}.pdf"
+                pdf_path = os.path.join(city_output_dir, pdf_filename)
 
-        # Сохраняем временный Word-файл
-        temp_docx_path = os.path.join(city_pdf_dir, f"{login}.docx")
-        doc.save(temp_docx_path)
+                # Конвертируем HTML в PDF
+                convert_html_to_pdf(html_content, pdf_path)
+                print(f"PDF для {city_name} создан: {pdf_path}")
 
-        # Конвертируем Word в PDF
-        pdf_path = os.path.join(city_pdf_dir, f"{login}.pdf")
-        convert(temp_docx_path, pdf_path)
 
-        # Удаляем временный Word-файл
-        os.remove(temp_docx_path)
-
-        print(f"Создан PDF для {login} в папке {city_pdf_dir}")
+if __name__ == "__main__":
+    generate_pdfs()
