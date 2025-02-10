@@ -1,7 +1,8 @@
 /tsvenv
 /libraries
 /pdf
-/template
+/templates
 /data
 *.sh
 *.code-workspace
+/to_pdf
