@@ -8,11 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 templates_dir = "templates"
 data_dir = "data"
 output_dir = "pdf"
-
 path_to_wkhtmltopdf = (
     r"C:\Users\tarakanchikoves\source\reports_ts\wkhtmltox\bin\wkhtmltopdf.exe"
 )
-
 config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
 
 
@@ -49,35 +47,45 @@ def convert_html_to_pdf(html_content, output_path):
     pdfkit.from_string(html_content, output_path, configuration=config)
 
 
-# Основная логика
+# Функция для генерации PDF для одного города
+def generate_pdfs_for_city(city_name):
+    # Загружаем данные из Excel
+    data_file = os.path.join(data_dir, f"data_{city_name}.xlsx")
+    data = load_excel_data(data_file)
+
+    # Создаем папку для города, если она не существует
+    city_output_dir = os.path.join(output_dir, city_name)
+    os.makedirs(city_output_dir, exist_ok=True)
+
+    # Загружаем соответствующий HTML-шаблон
+    template_name = f"{city_name}.htm"
+
+    # Генерация PDF для каждой строки данных
+    for i, row_data in enumerate(data):
+        # Рендерим HTML с данными
+        html_content = render_html(template_name, row_data)
+
+        # Путь к PDF-файлу
+        pdf_filename = f"{city_name}_{i+1}.pdf"
+        pdf_path = os.path.join(city_output_dir, pdf_filename)
+
+        # Конвертируем HTML в PDF
+        convert_html_to_pdf(html_content, pdf_path)
+        print(f"PDF для {city_name} создан: {pdf_path}")
+
+
+# Основная логика для распараллеливания
 def generate_pdfs():
-    # Проходим по всем файлам в папке data
-    for file_name in os.listdir(data_dir):
-        if file_name.endswith(".xlsx"):
-            city_name = get_city_from_filename(file_name)
-            # city_name = file_name.split(".")[0] # Город из имени файла (например, 'astrakhan')
-            data = load_excel_data(os.path.join(data_dir, file_name))
+    # Сканируем папку templates для всех файлов .htm (городов)
+    cities = [
+        filename.split(".")[0]
+        for filename in os.listdir("templates")
+        if filename.endswith(".htm")
+    ]
 
-            # Создаем папку для города, если она не существует
-            city_output_dir = os.path.join(output_dir, city_name)
-            os.makedirs(city_output_dir, exist_ok=True)
-
-            # Загружаем соответствующий HTML-шаблон
-            template_name = f"{city_name}.htm"  # Например, astrahan.htm
-            html_template = render_html(template_name, {"data": data})
-
-            # Генерация PDF для каждой строки данных
-            for i, row_data in enumerate(data):
-                # Рендерим HTML с данными
-                html_content = render_html(template_name, row_data)
-
-                # Путь к PDF-файлу
-                pdf_filename = f"{city_name}_{i+1}.pdf"
-                pdf_path = os.path.join(city_output_dir, pdf_filename)
-
-                # Конвертируем HTML в PDF
-                convert_html_to_pdf(html_content, pdf_path)
-                print(f"PDF для {city_name} создан: {pdf_path}")
+    # Использование ThreadPoolExecutor для параллельной обработки
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        executor.map(generate_pdfs_for_city, cities)
 
 
 if __name__ == "__main__":
