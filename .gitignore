@@ -7,3 +7,5 @@
 *.code-workspace
 /to_pdf
 /wkhtmltox
+/old
+/__pycache__
