@@ -62,14 +62,24 @@ def generate_pdfs_for_city(city_name):
 
     # Генерация PDF для каждой строки данных
     for row_data in data:
-        # Рендерим HTML с данными
-        html_content = render_html(template_name, row_data)
-        # print(row_data["key_4"].split(",")[1])
         # Путь к PDF-файлу
-        pdf_filename = f"{row_data["key_1"]} {row_data["key_4"].replace(",","")}.pdf"
-        pdf_path = os.path.join(city_output_dir, row_data["key_4"].split(",")[1])
+        if row_data["key_4"] is None or row_data["key_4"] == "":
+            row_data["key_4"] = "Без указания улицы"
+            pdf_filename = f"{row_data["key_1"]} {row_data["key_4"]}.pdf"
+            pdf_path = os.path.join(city_output_dir, row_data["key_4"])
+        else:
+            pdf_filename = (
+                f"{row_data["key_1"]} {row_data["key_4"].replace(",","")}.pdf"
+            )
+            pdf_path = os.path.join(city_output_dir, row_data["key_4"].split(",")[1])
+            # Проверяем, существует ли файл
         os.makedirs(pdf_path, exist_ok=True)
         pdf_path = os.path.join(pdf_path, pdf_filename)
+        if os.path.exists(pdf_path):
+            # print(f"Файл уже существует: {pdf_path}.  Пропускаем...")
+            continue  # Переходим к следующей итерации цикла
+        # Рендерим HTML с данными
+        html_content = render_html(template_name, row_data)
         # Конвертируем HTML в PDF
         convert_html_to_pdf(html_content, pdf_path)
         # print(f"PDF для {city_name} создан: {pdf_path}")
