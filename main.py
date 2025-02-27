@@ -5,7 +5,8 @@ from config import OUTPUT_DIR, BATCH_SIZE, TEMPLATES_DIR
 from data_loader import load_csv_data, get_csv_file_path_for_city
 from html_renderer import render_html
 from pdf_converter import convert_html_to_pdf
-from sanitazer import sanitize_filename
+
+# from sanitazer import sanitize_filename
 
 # Количество потоков для обработки городов
 NUM_CITY_THREADS = 4
@@ -29,20 +30,9 @@ def generate_pdfs_for_city(city_name):
         row_datas = []
 
         for row_data in batch_data:
-            if row_data["key_4"] is None or row_data["key_4"] == "":
-                row_data["key_4"] = "Без указания улицы"
-                pdf_filename = f"{row_data['key_1']} {row_data['key_4']}.pdf"
-                pdf_path = os.path.join(city_output_dir, row_data["key_4"])
-            else:
-                # address = row_data["key_4"].replace('"', "")
-                address = sanitize_filename(row_data["key_4"])
-                pdf_filename = f"{row_data['key_1']} {address}.pdf"
-                if "," in address:
-                    pdf_path = os.path.join(
-                        city_output_dir, address.split(",")[1].strip()
-                    )
-                else:
-                    pdf_path = os.path.join(city_output_dir, address.strip())
+            deliverer = row_data["key_4"] if row_data["key_4"] else "Без_доставщика"
+            pdf_filename = f"{row_data['key_1']} {deliverer}.pdf"
+            pdf_path = os.path.join(city_output_dir, deliverer)
 
             os.makedirs(pdf_path, exist_ok=True)
             pdf_path = os.path.join(pdf_path, pdf_filename)

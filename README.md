@@ -5,7 +5,7 @@
 3. Должен быть файл:
 
 ```bash
-tools/wkhtml/bin/wkhtmltopdf.exe
+tools/wkhtmltox/bin/wkhtmltopdf.exe
 ```
 
 4. Код автоматически найдет `wkhtmltopdf.exe`, путь прописывать вручную не нужно.
