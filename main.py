@@ -37,8 +37,8 @@ def generate_pdfs_for_city(city_name):
             os.makedirs(pdf_path, exist_ok=True)
             pdf_path = os.path.join(pdf_path, pdf_filename)
 
-            if os.path.exists(pdf_path):
-                continue
+            # if os.path.exists(pdf_path):
+            #     continue
 
             pdf_filenames.append(pdf_filename)
             pdf_paths.append(pdf_path)
