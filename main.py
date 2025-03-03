@@ -6,10 +6,9 @@ from data_loader import load_csv_data, get_csv_file_path_for_city
 from html_renderer import render_html
 from pdf_converter import convert_html_to_pdf
 
-# from sanitazer import sanitize_filename
 
 # Количество потоков для обработки городов
-NUM_CITY_THREADS = 4
+NUM_CITY_THREADS = 1
 # Количество потоков для создания PDF внутри каждого города
 NUM_PDF_THREADS = 4
 
@@ -59,14 +58,15 @@ def generate_pdfs_for_city(city_name):
 
 
 def generate_pdfs():
-    cities = [
-        filename.split(".")[0]
-        for filename in os.listdir(TEMPLATES_DIR)
-        if filename.endswith(".htm")
-    ]
+    # cities = [
+    #     filename.split(".")[0]
+    #     for filename in os.listdir(TEMPLATES_DIR)
+    #     if filename.endswith(".htm")
+    # ]
 
-    with ThreadPoolExecutor(max_workers=NUM_CITY_THREADS) as city_executor:
-        city_executor.map(generate_pdfs_for_city, cities)
+    # with ThreadPoolExecutor(max_workers=NUM_CITY_THREADS) as city_executor:
+    #     city_executor.map(generate_pdfs_for_city, cities)
+    generate_pdfs_for_city("volgodonsk")
 
 
 if __name__ == "__main__":
