@@ -49,8 +49,8 @@ def load_csv_data(file_path):
                 {
                     "key_1": row[0],  # account_login
                     "key_2": row[1],  # password
-                    "key_3": row[3],  # address
-                    "key_4": row[2],  # deliverer
+                    "key_3": row[2],  # address
+                    "key_4": row[3],  # deliverer
                 }
             )
     return data

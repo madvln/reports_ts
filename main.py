@@ -66,7 +66,7 @@ def generate_pdfs():
 
     # with ThreadPoolExecutor(max_workers=NUM_CITY_THREADS) as city_executor:
     #     city_executor.map(generate_pdfs_for_city, cities)
-    generate_pdfs_for_city("volgodonsk")
+    generate_pdfs_for_city("rostov")
 
 
 if __name__ == "__main__":
